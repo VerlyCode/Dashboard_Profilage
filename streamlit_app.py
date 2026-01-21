@@ -1,16 +1,34 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.express as px
 
 # ===============================
 # CONFIG PAGE
 # ===============================
 st.set_page_config(
-    page_title="Dashboard Profilage Clients 2025",
+    page_title="DigiPay | Profilage Clients 2025",
     page_icon="📊",
     layout="wide"
 )
+
+# ===============================
+# HEADER AVEC LOGO
+# ===============================
+col_logo, col_title = st.columns([1, 5])
+
+with col_logo:
+    st.image("Logo.png", width=120)
+
+with col_title:
+    st.markdown(
+        """
+        <h1 style='margin-bottom:0;'>Clients Profilage Dashboard</h1>
+        <h4 style='color:#9CA3AF;margin-top:0;'>DigiPay – Analyse & Segmentation Clients 2025</h4>
+        """,
+        unsafe_allow_html=True
+    )
+
+st.divider()
 
 # ===============================
 # CHARGEMENT DONNÉES
@@ -29,14 +47,10 @@ df = load_data()
 df = df[df['TxnDate'].dt.year == 2025].copy()
 
 # ===============================
-# KPI GLOBAUX
+# KPI CALCULS
 # ===============================
 nb_clients = df['Sender Name'].nunique()
-nb_transactions = len(df)
 
-# ===============================
-# CLIENTS ACTIFS 30 / 60 / 90 JOURS
-# ===============================
 def count_clients_actifs(jours):
     date_limite = df['TxnDate'].max() - pd.Timedelta(days=jours)
     return df[df['TxnDate'] >= date_limite]['Sender Name'].nunique()
@@ -46,7 +60,70 @@ actifs_60j = count_clients_actifs(60)
 actifs_90j = count_clients_actifs(90)
 
 # ===============================
-# TRANSACTIONS PAR CLIENT
+# SIDEBAR FILTRES
+# ===============================
+st.sidebar.markdown("## 🔎 Filtres")
+agences = sorted(df['Agence'].dropna().unique())
+agence_sel = st.sidebar.multiselect("Agence", agences, default=agences)
+
+df = df[df['Agence'].isin(agence_sel)]
+
+# ===============================
+# KPI CARDS (CUSTOM STYLE)
+# ===============================
+st.markdown("""
+<style>
+.kpi-box {
+    background: #161B22;
+    padding: 25px;
+    border-radius: 18px;
+    text-align: center;
+}
+.kpi-title {
+    color: #9CA3AF;
+    font-size: 16px;
+}
+.kpi-value {
+    font-size: 38px;
+    font-weight: bold;
+}
+</style>
+""", unsafe_allow_html=True)
+
+k1, k2, k3, k4 = st.columns(4)
+
+k1.markdown(f"""
+<div class="kpi-box">
+    <div class="kpi-title">👥 Clients</div>
+    <div class="kpi-value">{nb_clients}</div>
+</div>
+""", unsafe_allow_html=True)
+
+k2.markdown(f"""
+<div class="kpi-box">
+    <div class="kpi-title">🔥 Actifs 30 jours</div>
+    <div class="kpi-value">{actifs_30j}</div>
+</div>
+""", unsafe_allow_html=True)
+
+k3.markdown(f"""
+<div class="kpi-box">
+    <div class="kpi-title">📆 Actifs 60 jours</div>
+    <div class="kpi-value">{actifs_60j}</div>
+</div>
+""", unsafe_allow_html=True)
+
+k4.markdown(f"""
+<div class="kpi-box">
+    <div class="kpi-title">📅 Actifs 90 jours</div>
+    <div class="kpi-value">{actifs_90j}</div>
+</div>
+""", unsafe_allow_html=True)
+
+st.divider()
+
+# ===============================
+# SEGMENTATION CLIENT
 # ===============================
 tx_par_client = (
     df.groupby(['Sender Name', 'Agence'])
@@ -54,9 +131,6 @@ tx_par_client = (
     .reset_index(name='Nombre_Envois')
 )
 
-# ===============================
-# SEGMENTATION CLIENT
-# ===============================
 def segment(n):
     if n == 1:
         return "1 transaction"
@@ -69,80 +143,53 @@ def segment(n):
 
 tx_par_client['Segment'] = tx_par_client['Nombre_Envois'].apply(segment)
 
-# ===============================
-# CLIENTS TOUTE L’ANNÉE (12 MOIS)
-# ===============================
-df['YearMonth'] = df['TxnDate'].dt.to_period('M')
-
-clients_mensuels = (
-    df.groupby(['Sender Name', 'Agence'])['YearMonth']
-    .nunique()
-    .reset_index(name='Mois_Actifs')
-)
-
-clients_toute_annee = clients_mensuels[clients_mensuels['Mois_Actifs'] == 12]
-
-# ===============================
-# TOP CLIENTS
-# ===============================
-top_clients_volume = tx_par_client.sort_values('Nombre_Envois', ascending=False)
-top_clients_reguliers = clients_toute_annee.copy()
-
-# ===============================
-# SIDEBAR FILTRES
-# ===============================
-st.sidebar.header("🔎 Filtres")
-
-agences = sorted(df['Agence'].dropna().unique())
-agence_sel = st.sidebar.multiselect("Agence", agences, default=agences)
-
-df_filtree = df[df['Agence'].isin(agence_sel)]
-tx_filtree = tx_par_client[tx_par_client['Agence'].isin(agence_sel)]
-
-# ===============================
-# TITRE
-# ===============================
-st.markdown("<h1 style='text-align:center;'>📊 Dashboard Profilage Clients – 2025</h1>", unsafe_allow_html=True)
-st.divider()
-
-# ===============================
-# KPI
-# ===============================
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("👥 Clients", nb_clients)
-c2.metric("🔥 Actifs 30j", actifs_30j)
-c3.metric("📆 Actifs 60j", actifs_60j)
-c4.metric("📅 Actifs 90j", actifs_90j)
-
-st.divider()
-
-# ===============================
-# GRAPHIQUE SEGMENTATION
-# ===============================
 seg_fig = px.bar(
-    tx_filtree.groupby('Segment').size().reset_index(name='Clients'),
+    tx_par_client.groupby('Segment').size().reset_index(name='Clients'),
     x='Segment',
     y='Clients',
     text='Clients',
-    title="Segmentation clients 2025"
+    color='Segment',
+    title="📊 Segmentation des clients – 2025",
+)
+
+seg_fig.update_layout(
+    template="plotly_dark",
+    title_x=0.5
 )
 
 st.plotly_chart(seg_fig, use_container_width=True)
 
 # ===============================
-# TOP CLIENTS VOLUME
+# TOP CLIENTS
 # ===============================
 st.subheader("🏆 Top clients par volume")
-st.dataframe(top_clients_volume.head(20), use_container_width=True)
+
+st.dataframe(
+    tx_par_client.sort_values('Nombre_Envois', ascending=False).head(20),
+    use_container_width=True
+)
 
 # ===============================
-# TOP CLIENTS RÉGULIERS
+# CLIENTS RÉGULIERS (12 MOIS)
 # ===============================
+df['YearMonth'] = df['TxnDate'].dt.to_period('M')
+
+clients_toute_annee = (
+    df.groupby(['Sender Name', 'Agence'])['YearMonth']
+    .nunique()
+    .reset_index(name='Mois_Actifs')
+)
+
+clients_toute_annee = clients_toute_annee[clients_toute_annee['Mois_Actifs'] == 12]
+
 st.subheader("🔁 Clients réguliers (12 mois actifs)")
-st.dataframe(top_clients_reguliers, use_container_width=True)
+st.dataframe(clients_toute_annee, use_container_width=True)
 
 # ===============================
-# DÉTAIL CLIENT
+# FOOTER
 # ===============================
-st.subheader("📋 Détail clients")
-st.dataframe(tx_filtree.sort_values('Nombre_Envois', ascending=False), use_container_width=True)
+st.markdown(
+    "<hr style='margin-top:40px;'>"
+    "<p style='text-align:center;color:#6B7280;'>© 2025 DigiPay – Direction Data & Analytics</p>",
+    unsafe_allow_html=True
+)
