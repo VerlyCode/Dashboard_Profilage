@@ -190,6 +190,7 @@ st.dataframe(clients_toute_annee, use_container_width=True)
 # ===============================
 st.markdown(
     "<hr style='margin-top:40px;'>"
-    "<p style='text-align:center;color:#6B7280;'>© 2025 DigiPay – Direction Data & Analytics</p>",
+    "<p style='text-align:center;color:#6B7280;'>© 2025 DigiPay – Direction Commerciale</p>"
+    "<p style='text-align:center;color:#6B7280;'>Verly BOUMBOU KIMBATSA – Responsable Operations Commerciale</p>",
     unsafe_allow_html=True
 )
