@@ -3,6 +3,28 @@ import pandas as pd
 import plotly.express as px
 
 # ===============================
+# 🔐 PROTECTION PAR MOT DE PASSE
+# ===============================
+def check_password():
+    def password_entered():
+        if st.session_state["password"] == "DIGIPAY2025":
+            st.session_state["password_correct"] = True
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        st.text_input("🔐 Mot de passe", type="password",
+                      on_change=password_entered, key="password")
+        st.stop()
+    elif not st.session_state["password_correct"]:
+        st.text_input("🔐 Mot de passe", type="password",
+                      on_change=password_entered, key="password")
+        st.error("Mot de passe incorrect")
+        st.stop()
+
+check_password()
+
+# ===============================
 # CONFIG PAGE
 # ===============================
 st.set_page_config(
@@ -14,16 +36,18 @@ st.set_page_config(
 # ===============================
 # HEADER AVEC LOGO
 # ===============================
-col_logo, col_title = st.columns([1, 5])
+col_logo, col_title = st.columns([1, 6])
 
 with col_logo:
-    st.image("Logo.png", width=120)
+    st.image("Logo.png", width=95)  # 👈 logo légèrement réduit
 
 with col_title:
     st.markdown(
         """
         <h1 style='margin-bottom:0;'>Clients Profilage Dashboard</h1>
-        <h4 style='color:#9CA3AF;margin-top:0;'>DigiPay – Analyse & Segmentation Clients 2025</h4>
+        <h4 style='color:#9CA3AF;margin-top:0;'>
+        DigiPay – Analyse & Segmentation Clients 2025
+        </h4>
         """,
         unsafe_allow_html=True
     )
@@ -31,7 +55,7 @@ with col_title:
 st.divider()
 
 # ===============================
-# CHARGEMENT DONNÉES
+# 📂 CHARGEMENT DES DONNÉES (LOCAL)
 # ===============================
 @st.cache_data
 def load_data():
@@ -65,26 +89,25 @@ actifs_90j = count_clients_actifs(90)
 st.sidebar.markdown("## 🔎 Filtres")
 agences = sorted(df['Agence'].dropna().unique())
 agence_sel = st.sidebar.multiselect("Agence", agences, default=agences)
-
 df = df[df['Agence'].isin(agence_sel)]
 
 # ===============================
-# KPI CARDS (CUSTOM STYLE)
+# KPI CARDS (STYLE)
 # ===============================
 st.markdown("""
 <style>
 .kpi-box {
     background: #161B22;
-    padding: 25px;
-    border-radius: 18px;
+    padding: 22px;
+    border-radius: 16px;
     text-align: center;
 }
 .kpi-title {
     color: #9CA3AF;
-    font-size: 16px;
+    font-size: 15px;
 }
 .kpi-value {
-    font-size: 38px;
+    font-size: 36px;
     font-weight: bold;
 }
 </style>
@@ -163,7 +186,6 @@ st.plotly_chart(seg_fig, use_container_width=True)
 # TOP CLIENTS
 # ===============================
 st.subheader("🏆 Top clients par volume")
-
 st.dataframe(
     tx_par_client.sort_values('Nombre_Envois', ascending=False).head(20),
     use_container_width=True
@@ -191,6 +213,6 @@ st.dataframe(clients_toute_annee, use_container_width=True)
 st.markdown(
     "<hr style='margin-top:40px;'>"
     "<p style='text-align:center;color:#6B7280;'>© 2025 DigiPay – Direction Commerciale</p>"
-    "<p style='text-align:center;color:#6B7280;'>Verly BOUMBOU KIMBATSA – Responsable Operations Commerciale</p>",
+    "<p style='text-align:center;color:#6B7280;'>Verly BOUMBOU KIMBATSA – Responsable Opérations Commerciales</p>",
     unsafe_allow_html=True
 )
