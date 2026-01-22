@@ -1,30 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import os
-
-# ===============================
-# 🔐 PROTECTION PAR MOT DE PASSE
-# ===============================
-def check_password():
-    def password_entered():
-        if st.session_state["password"] == "DIGIPAY2025":
-            st.session_state["password_correct"] = True
-        else:
-            st.session_state["password_correct"] = False
-
-    if "password_correct" not in st.session_state:
-        st.text_input("🔐 Mot de passe", type="password",
-                      on_change=password_entered, key="password")
-        st.stop()
-
-    if not st.session_state["password_correct"]:
-        st.text_input("🔐 Mot de passe", type="password",
-                      on_change=password_entered, key="password")
-        st.error("Mot de passe incorrect")
-        st.stop()
-
-check_password()
 
 # ===============================
 # CONFIG PAGE
@@ -36,14 +12,57 @@ st.set_page_config(
 )
 
 # ===============================
-# HEADER AVEC LOGO
+# 🔐 MOT DE PASSE SIMPLE
 # ===============================
-col_logo, col_title = st.columns([1, 6])
+PASSWORD = "DIGIPAY2025"
 
-with col_logo:
-    st.image("Logo.png", width=90)
+if "auth" not in st.session_state:
+    st.session_state.auth = False
 
-with col_title:
+if not st.session_state.auth:
+    pwd = st.text_input("🔐 Mot de passe", type="password")
+    if pwd == PASSWORD:
+        st.session_state.auth = True
+        st.rerun()
+    elif pwd:
+        st.error("Mot de passe incorrect")
+    st.stop()
+
+# ===============================
+# 📂 CHARGEMENT DES DONNÉES (UNE FOIS)
+# ===============================
+if "df" not in st.session_state:
+    st.sidebar.info("📂 Charger les données (1 seule fois)")
+
+    uploaded_file = st.sidebar.file_uploader(
+        "Fichier DigiPay (Excel)",
+        type=["xlsx"]
+    )
+
+    if uploaded_file is None:
+        st.warning("⛔ Données non disponibles")
+        st.stop()
+
+    df = pd.read_excel(uploaded_file)
+    df['TxnDate'] = pd.to_datetime(df['TxnDate'])
+    st.session_state.df = df
+else:
+    df = st.session_state.df
+
+# ===============================
+# FILTRE ANNÉE 2025
+# ===============================
+df = df[df['TxnDate'].dt.year == 2025].copy()
+
+# ===============================
+# HEADER
+# ===============================
+col1, col2 = st.columns([1, 6])
+
+with col1:
+    st.image("Logo.png", width=85)
+
+with col2:
     st.markdown("""
         <h1 style='margin-bottom:0;'>Clients Profilage Dashboard</h1>
         <h4 style='color:#9CA3AF;margin-top:0;'>
@@ -54,104 +73,23 @@ with col_title:
 st.divider()
 
 # ===============================
-# 📂 CHARGEMENT DES DONNÉES (MODE DG STRICT)
+# KPI
 # ===============================
-DATA_FILE = "bss_cleannn.xlsx"
+def actifs(j):
+    return df[df['TxnDate'] >= df['TxnDate'].max() - pd.Timedelta(days=j)]['Sender Name'].nunique()
 
-if not os.path.exists(DATA_FILE):
-    st.error(
-        "❌ Données non disponibles.\n\n"
-        "Veuillez contacter l’administrateur DigiPay."
-    )
-    st.stop()
-
-df = pd.read_excel(DATA_FILE)
-df['TxnDate'] = pd.to_datetime(df['TxnDate'])
-
-# ===============================
-# FILTRE ANNÉE 2025
-# ===============================
-df = df[df['TxnDate'].dt.year == 2025].copy()
-
-# ===============================
-# KPI CALCULS
-# ===============================
-nb_clients = df['Sender Name'].nunique()
-
-def count_clients_actifs(jours):
-    date_limite = df['TxnDate'].max() - pd.Timedelta(days=jours)
-    return df[df['TxnDate'] >= date_limite]['Sender Name'].nunique()
-
-actifs_30j = count_clients_actifs(30)
-actifs_60j = count_clients_actifs(60)
-actifs_90j = count_clients_actifs(90)
-
-# ===============================
-# SIDEBAR FILTRES
-# ===============================
-st.sidebar.markdown("## 🔎 Filtres")
-agences = sorted(df['Agence'].dropna().unique())
-agence_sel = st.sidebar.multiselect("Agence", agences, default=agences)
-df = df[df['Agence'].isin(agence_sel)]
-
-# ===============================
-# KPI CARDS STYLE
-# ===============================
-st.markdown("""
-<style>
-.kpi-box {
-    background: #161B22;
-    padding: 22px;
-    border-radius: 16px;
-    text-align: center;
-}
-.kpi-title {
-    color: #9CA3AF;
-    font-size: 15px;
-}
-.kpi-value {
-    font-size: 36px;
-    font-weight: bold;
-}
-</style>
-""", unsafe_allow_html=True)
-
-k1, k2, k3, k4 = st.columns(4)
-
-k1.markdown(f"""
-<div class="kpi-box">
-<div class="kpi-title">👥 Clients</div>
-<div class="kpi-value">{nb_clients}</div>
-</div>
-""", unsafe_allow_html=True)
-
-k2.markdown(f"""
-<div class="kpi-box">
-<div class="kpi-title">🔥 Actifs 30 jours</div>
-<div class="kpi-value">{actifs_30j}</div>
-</div>
-""", unsafe_allow_html=True)
-
-k3.markdown(f"""
-<div class="kpi-box">
-<div class="kpi-title">📆 Actifs 60 jours</div>
-<div class="kpi-value">{actifs_60j}</div>
-</div>
-""", unsafe_allow_html=True)
-
-k4.markdown(f"""
-<div class="kpi-box">
-<div class="kpi-title">📅 Actifs 90 jours</div>
-<div class="kpi-value">{actifs_90j}</div>
-</div>
-""", unsafe_allow_html=True)
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("👥 Clients", df['Sender Name'].nunique())
+c2.metric("🔥 Actifs 30j", actifs(30))
+c3.metric("📆 Actifs 60j", actifs(60))
+c4.metric("📅 Actifs 90j", actifs(90))
 
 st.divider()
 
 # ===============================
 # SEGMENTATION CLIENT
 # ===============================
-tx_par_client = (
+tx = (
     df.groupby(['Sender Name', 'Agence'])
     .size()
     .reset_index(name='Nombre_Envois')
@@ -160,33 +98,34 @@ tx_par_client = (
 def segment(n):
     if n == 1:
         return "1 transaction"
-    elif 2 <= n <= 3:
+    elif n <= 3:
         return "Rare"
-    elif 4 <= n <= 11:
+    elif n <= 11:
         return "Occasionnel"
     else:
         return "Régulier"
 
-tx_par_client['Segment'] = tx_par_client['Nombre_Envois'].apply(segment)
+tx['Segment'] = tx['Nombre_Envois'].apply(segment)
 
-seg_fig = px.bar(
-    tx_par_client.groupby('Segment').size().reset_index(name='Clients'),
+fig = px.bar(
+    tx.groupby('Segment').size().reset_index(name='Clients'),
     x='Segment',
     y='Clients',
     text='Clients',
     color='Segment',
     title="📊 Segmentation des clients – 2025",
+    template="plotly_dark"
 )
 
-seg_fig.update_layout(template="plotly_dark", title_x=0.5)
-st.plotly_chart(seg_fig, use_container_width=True)
+fig.update_layout(title_x=0.5)
+st.plotly_chart(fig, use_container_width=True)
 
 # ===============================
 # TOP CLIENTS
 # ===============================
 st.subheader("🏆 Top clients par volume")
 st.dataframe(
-    tx_par_client.sort_values('Nombre_Envois', ascending=False).head(20),
+    tx.sort_values('Nombre_Envois', ascending=False).head(20),
     use_container_width=True
 )
 
@@ -195,18 +134,16 @@ st.dataframe(
 # ===============================
 df['YearMonth'] = df['TxnDate'].dt.to_period('M')
 
-clients_toute_annee = (
+clients_12_mois = (
     df.groupby(['Sender Name', 'Agence'])['YearMonth']
     .nunique()
     .reset_index(name='Mois_Actifs')
 )
 
-clients_toute_annee = clients_toute_annee[
-    clients_toute_annee['Mois_Actifs'] == 12
-]
+clients_12_mois = clients_12_mois[clients_12_mois['Mois_Actifs'] == 12]
 
 st.subheader("🔁 Clients réguliers (12 mois actifs)")
-st.dataframe(clients_toute_annee, use_container_width=True)
+st.dataframe(clients_12_mois, use_container_width=True)
 
 # ===============================
 # FOOTER
