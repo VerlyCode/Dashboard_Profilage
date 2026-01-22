@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 # ===============================
-# 🔐 MOT DE PASSE SIMPLE
+# 🔐 MOT DE PASSE
 # ===============================
 PASSWORD = "DIGIPAY2025"
 
@@ -29,7 +29,7 @@ if not st.session_state.auth:
     st.stop()
 
 # ===============================
-# 📊 CHARGEMENT DES DONNÉES DEPUIS GOOGLE SHEETS
+# 📊 DONNÉES – GOOGLE SHEETS
 # ===============================
 SHEET_ID = "1K25ZIJ2Dq947rp2IXOdfPQFUlvTA7JK7"
 CSV_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
@@ -46,6 +46,20 @@ df = load_data()
 # FILTRE ANNÉE 2025
 # ===============================
 df = df[df['TxnDate'].dt.year == 2025].copy()
+
+# ===============================
+# SIDEBAR – FILTRES
+# ===============================
+st.sidebar.markdown("## 🔎 Filtres")
+
+agences = sorted(df['Agence'].dropna().unique())
+agence_sel = st.sidebar.multiselect(
+    "Agence",
+    agences,
+    default=agences
+)
+
+df_filtree = df[df['Agence'].isin(agence_sel)]
 
 # ===============================
 # HEADER
@@ -69,12 +83,12 @@ st.divider()
 # KPI
 # ===============================
 def actifs(j):
-    return df[
-        df['TxnDate'] >= df['TxnDate'].max() - pd.Timedelta(days=j)
+    return df_filtree[
+        df_filtree['TxnDate'] >= df_filtree['TxnDate'].max() - pd.Timedelta(days=j)
     ]['Sender Name'].nunique()
 
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("👥 Clients", df['Sender Name'].nunique())
+c1.metric("👥 Clients", df_filtree['Sender Name'].nunique())
 c2.metric("🔥 Actifs 30j", actifs(30))
 c3.metric("📆 Actifs 60j", actifs(60))
 c4.metric("📅 Actifs 90j", actifs(90))
@@ -85,7 +99,8 @@ st.divider()
 # SEGMENTATION CLIENT
 # ===============================
 tx = (
-    df.groupby(['Sender Name', 'Agence'])
+    df_filtree
+    .groupby(['Sender Name', 'Agence'])
     .size()
     .reset_index(name='Nombre_Envois')
 )
@@ -102,7 +117,7 @@ def segment(n):
 
 tx['Segment'] = tx['Nombre_Envois'].apply(segment)
 
-fig = px.bar(
+seg_fig = px.bar(
     tx.groupby('Segment').size().reset_index(name='Clients'),
     x='Segment',
     y='Clients',
@@ -112,8 +127,8 @@ fig = px.bar(
     template="plotly_dark"
 )
 
-fig.update_layout(title_x=0.5)
-st.plotly_chart(fig, use_container_width=True)
+seg_fig.update_layout(title_x=0.5)
+st.plotly_chart(seg_fig, use_container_width=True)
 
 # ===============================
 # TOP CLIENTS
@@ -127,10 +142,11 @@ st.dataframe(
 # ===============================
 # CLIENTS RÉGULIERS (12 MOIS)
 # ===============================
-df['YearMonth'] = df['TxnDate'].dt.to_period('M')
+df_filtree['YearMonth'] = df_filtree['TxnDate'].dt.to_period('M')
 
 clients_12_mois = (
-    df.groupby(['Sender Name', 'Agence'])['YearMonth']
+    df_filtree
+    .groupby(['Sender Name', 'Agence'])['YearMonth']
     .nunique()
     .reset_index(name='Mois_Actifs')
 )
