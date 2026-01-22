@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import os
 
 # ===============================
 # 🔐 PROTECTION PAR MOT DE PASSE
@@ -39,7 +40,7 @@ st.set_page_config(
 col_logo, col_title = st.columns([1, 6])
 
 with col_logo:
-    st.image("Logo.png", width=95)  # 👈 logo légèrement réduit
+    st.image("Logo.png", width=95)
 
 with col_title:
     st.markdown(
@@ -55,15 +56,37 @@ with col_title:
 st.divider()
 
 # ===============================
-# 📂 CHARGEMENT DES DONNÉES (LOCAL)
+# 📂 CHARGEMENT DES DONNÉES (HYBRIDE)
 # ===============================
-@st.cache_data
-def load_data():
-    df = pd.read_excel("bss_cleannn.xlsx")
-    df['TxnDate'] = pd.to_datetime(df['TxnDate'])
-    return df
+DATA_FILE = "bss_cleannn.xlsx"
 
-df = load_data()
+def load_dataframe():
+    # 🔹 CAS 1 : LOCAL (fichier présent)
+    if os.path.exists(DATA_FILE):
+        df = pd.read_excel(DATA_FILE)
+        source = "local"
+
+    # 🔹 CAS 2 : CLOUD (upload)
+    else:
+        st.sidebar.markdown("## 📂 Données")
+        uploaded_file = st.sidebar.file_uploader(
+            "Charger le fichier DigiPay (Excel)",
+            type=["xlsx"]
+        )
+
+        if uploaded_file is None:
+            st.info("⬅️ Veuillez charger le fichier Excel pour afficher le dashboard.")
+            st.stop()
+
+        df = pd.read_excel(uploaded_file)
+        source = "upload"
+
+    df['TxnDate'] = pd.to_datetime(df['TxnDate'])
+    return df, source
+
+df, source = load_dataframe()
+
+st.sidebar.success(f"📊 Données chargées ({source})")
 
 # ===============================
 # FILTRE ANNÉE 2025
@@ -175,11 +198,7 @@ seg_fig = px.bar(
     title="📊 Segmentation des clients – 2025",
 )
 
-seg_fig.update_layout(
-    template="plotly_dark",
-    title_x=0.5
-)
-
+seg_fig.update_layout(template="plotly_dark", title_x=0.5)
 st.plotly_chart(seg_fig, use_container_width=True)
 
 # ===============================
