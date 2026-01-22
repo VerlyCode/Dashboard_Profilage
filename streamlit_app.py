@@ -29,25 +29,18 @@ if not st.session_state.auth:
     st.stop()
 
 # ===============================
-# 📂 CHARGEMENT DES DONNÉES (UNE FOIS)
+# 📊 CHARGEMENT DES DONNÉES DEPUIS GOOGLE SHEETS
 # ===============================
-if "df" not in st.session_state:
-    st.sidebar.info("📂 Charger les données (1 seule fois)")
+SHEET_ID = "1K25ZIJ2Dq947rp2IXOdfPQFUlvTA7JK7"
+CSV_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
-    uploaded_file = st.sidebar.file_uploader(
-        "Fichier DigiPay (Excel)",
-        type=["xlsx"]
-    )
-
-    if uploaded_file is None:
-        st.warning("⛔ Données non disponibles")
-        st.stop()
-
-    df = pd.read_excel(uploaded_file)
+@st.cache_data
+def load_data():
+    df = pd.read_csv(CSV_URL)
     df['TxnDate'] = pd.to_datetime(df['TxnDate'])
-    st.session_state.df = df
-else:
-    df = st.session_state.df
+    return df
+
+df = load_data()
 
 # ===============================
 # FILTRE ANNÉE 2025
@@ -76,7 +69,9 @@ st.divider()
 # KPI
 # ===============================
 def actifs(j):
-    return df[df['TxnDate'] >= df['TxnDate'].max() - pd.Timedelta(days=j)]['Sender Name'].nunique()
+    return df[
+        df['TxnDate'] >= df['TxnDate'].max() - pd.Timedelta(days=j)
+    ]['Sender Name'].nunique()
 
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("👥 Clients", df['Sender Name'].nunique())
@@ -140,7 +135,9 @@ clients_12_mois = (
     .reset_index(name='Mois_Actifs')
 )
 
-clients_12_mois = clients_12_mois[clients_12_mois['Mois_Actifs'] == 12]
+clients_12_mois = clients_12_mois[
+    clients_12_mois['Mois_Actifs'] == 12
+]
 
 st.subheader("🔁 Clients réguliers (12 mois actifs)")
 st.dataframe(clients_12_mois, use_container_width=True)
