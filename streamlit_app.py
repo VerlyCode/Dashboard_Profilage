@@ -17,7 +17,8 @@ def check_password():
         st.text_input("🔐 Mot de passe", type="password",
                       on_change=password_entered, key="password")
         st.stop()
-    elif not st.session_state["password_correct"]:
+
+    if not st.session_state["password_correct"]:
         st.text_input("🔐 Mot de passe", type="password",
                       on_change=password_entered, key="password")
         st.error("Mot de passe incorrect")
@@ -40,53 +41,32 @@ st.set_page_config(
 col_logo, col_title = st.columns([1, 6])
 
 with col_logo:
-    st.image("Logo.png", width=95)
+    st.image("Logo.png", width=90)
 
 with col_title:
-    st.markdown(
-        """
+    st.markdown("""
         <h1 style='margin-bottom:0;'>Clients Profilage Dashboard</h1>
         <h4 style='color:#9CA3AF;margin-top:0;'>
         DigiPay – Analyse & Segmentation Clients 2025
         </h4>
-        """,
-        unsafe_allow_html=True
-    )
+    """, unsafe_allow_html=True)
 
 st.divider()
 
 # ===============================
-# 📂 CHARGEMENT DES DONNÉES (HYBRIDE)
+# 📂 CHARGEMENT DES DONNÉES (MODE DG STRICT)
 # ===============================
 DATA_FILE = "bss_cleannn.xlsx"
 
-def load_dataframe():
-    # 🔹 CAS 1 : LOCAL (fichier présent)
-    if os.path.exists(DATA_FILE):
-        df = pd.read_excel(DATA_FILE)
-        source = "local"
+if not os.path.exists(DATA_FILE):
+    st.error(
+        "❌ Données non disponibles.\n\n"
+        "Veuillez contacter l’administrateur DigiPay."
+    )
+    st.stop()
 
-    # 🔹 CAS 2 : CLOUD (upload)
-    else:
-        st.sidebar.markdown("## 📂 Données")
-        uploaded_file = st.sidebar.file_uploader(
-            "Charger le fichier DigiPay (Excel)",
-            type=["xlsx"]
-        )
-
-        if uploaded_file is None:
-            st.info("⬅️ Veuillez charger le fichier Excel pour afficher le dashboard.")
-            st.stop()
-
-        df = pd.read_excel(uploaded_file)
-        source = "upload"
-
-    df['TxnDate'] = pd.to_datetime(df['TxnDate'])
-    return df, source
-
-df, source = load_dataframe()
-
-st.sidebar.success(f"📊 Données chargées ({source})")
+df = pd.read_excel(DATA_FILE)
+df['TxnDate'] = pd.to_datetime(df['TxnDate'])
 
 # ===============================
 # FILTRE ANNÉE 2025
@@ -115,7 +95,7 @@ agence_sel = st.sidebar.multiselect("Agence", agences, default=agences)
 df = df[df['Agence'].isin(agence_sel)]
 
 # ===============================
-# KPI CARDS (STYLE)
+# KPI CARDS STYLE
 # ===============================
 st.markdown("""
 <style>
@@ -140,29 +120,29 @@ k1, k2, k3, k4 = st.columns(4)
 
 k1.markdown(f"""
 <div class="kpi-box">
-    <div class="kpi-title">👥 Clients</div>
-    <div class="kpi-value">{nb_clients}</div>
+<div class="kpi-title">👥 Clients</div>
+<div class="kpi-value">{nb_clients}</div>
 </div>
 """, unsafe_allow_html=True)
 
 k2.markdown(f"""
 <div class="kpi-box">
-    <div class="kpi-title">🔥 Actifs 30 jours</div>
-    <div class="kpi-value">{actifs_30j}</div>
+<div class="kpi-title">🔥 Actifs 30 jours</div>
+<div class="kpi-value">{actifs_30j}</div>
 </div>
 """, unsafe_allow_html=True)
 
 k3.markdown(f"""
 <div class="kpi-box">
-    <div class="kpi-title">📆 Actifs 60 jours</div>
-    <div class="kpi-value">{actifs_60j}</div>
+<div class="kpi-title">📆 Actifs 60 jours</div>
+<div class="kpi-value">{actifs_60j}</div>
 </div>
 """, unsafe_allow_html=True)
 
 k4.markdown(f"""
 <div class="kpi-box">
-    <div class="kpi-title">📅 Actifs 90 jours</div>
-    <div class="kpi-value">{actifs_90j}</div>
+<div class="kpi-title">📅 Actifs 90 jours</div>
+<div class="kpi-value">{actifs_90j}</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -221,7 +201,9 @@ clients_toute_annee = (
     .reset_index(name='Mois_Actifs')
 )
 
-clients_toute_annee = clients_toute_annee[clients_toute_annee['Mois_Actifs'] == 12]
+clients_toute_annee = clients_toute_annee[
+    clients_toute_annee['Mois_Actifs'] == 12
+]
 
 st.subheader("🔁 Clients réguliers (12 mois actifs)")
 st.dataframe(clients_toute_annee, use_container_width=True)
@@ -229,9 +211,12 @@ st.dataframe(clients_toute_annee, use_container_width=True)
 # ===============================
 # FOOTER
 # ===============================
-st.markdown(
-    "<hr style='margin-top:40px;'>"
-    "<p style='text-align:center;color:#6B7280;'>© 2025 DigiPay – Direction Commerciale</p>"
-    "<p style='text-align:center;color:#6B7280;'>Verly BOUMBOU KIMBATSA – Responsable Opérations Commerciales</p>",
-    unsafe_allow_html=True
-)
+st.markdown("""
+<hr style='margin-top:40px;'>
+<p style='text-align:center;color:#6B7280;'>
+© 2025 DigiPay – Direction Commerciale
+</p>
+<p style='text-align:center;color:#6B7280;'>
+Verly BOUMBOU KIMBATSA – Responsable Opérations Commerciales
+</p>
+""", unsafe_allow_html=True)
