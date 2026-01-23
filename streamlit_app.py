@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 
 # ===============================
 # CONFIG PAGE
@@ -37,7 +36,7 @@ CSV_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 @st.cache_data
 def load_data():
     df = pd.read_csv(CSV_URL)
-    df['TxnDate'] = pd.to_datetime(df['TxnDate'])
+    df["TxnDate"] = pd.to_datetime(df["TxnDate"])
     return df
 
 df = load_data()
@@ -45,128 +44,173 @@ df = load_data()
 # ===============================
 # FILTRE ANNÉE 2025
 # ===============================
-df = df[df['TxnDate'].dt.year == 2025].copy()
+df = df[df["TxnDate"].dt.year == 2025].copy()
+
+# ===============================
+# ❌ EXCLUSION EMPLOYÉS DIGIPAY
+# ===============================
+clients_internes = [
+    "KIHOULOU Mesmin omer",
+    "NGASSAKI-ZONI Gachlem zepharos"
+]
+df = df[~df["Sender Name"].isin(clients_internes)]
 
 # ===============================
 # SIDEBAR – FILTRES
 # ===============================
-st.sidebar.markdown("## 🔎 Filtres")
-
-agences = sorted(df['Agence'].dropna().unique())
-agence_sel = st.sidebar.multiselect(
-    "Agence",
-    agences,
-    default=agences
-)
-
-df_filtree = df[df['Agence'].isin(agence_sel)]
+st.sidebar.header("🔎 Filtres")
+agences = sorted(df["Agence"].dropna().unique())
+agence_sel = st.sidebar.multiselect("Agence", agences, default=agences)
+df = df[df["Agence"].isin(agence_sel)]
 
 # ===============================
-# HEADER
+# HEADER AVEC LOGO
 # ===============================
 col1, col2 = st.columns([1, 6])
 
 with col1:
-    st.image("Logo.png", width=85)
+    st.image("Logo.png", width=90)
 
 with col2:
     st.markdown("""
-        <h1 style='margin-bottom:0;'>Clients Profilage Dashboard</h1>
+        <h1 style='margin-bottom:0;'>📊 Profilage Clients – 2025</h1>
         <h4 style='color:#9CA3AF;margin-top:0;'>
-        DigiPay – Analyse & Segmentation Clients 2025
+        DigiPay – Analyse & Segmentation Clients
         </h4>
     """, unsafe_allow_html=True)
 
 st.divider()
 
 # ===============================
+# STYLE KPI (SEXY)
+# ===============================
+st.markdown("""
+<style>
+.kpi-card {
+    background: linear-gradient(135deg, #1f2937, #111827);
+    padding: 26px;
+    border-radius: 18px;
+    text-align: center;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+}
+.kpi-title {
+    color: #9CA3AF;
+    font-size: 14px;
+    letter-spacing: 1px;
+}
+.kpi-value {
+    font-size: 40px;
+    font-weight: 700;
+    color: #F9FAFB;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ===============================
 # KPI
 # ===============================
-def actifs(j):
-    return df_filtree[
-        df_filtree['TxnDate'] >= df_filtree['TxnDate'].max() - pd.Timedelta(days=j)
-    ]['Sender Name'].nunique()
+date_max = df["TxnDate"].max()
 
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("👥 Clients", df_filtree['Sender Name'].nunique())
-c2.metric("🔥 Actifs 30j", actifs(30))
-c3.metric("📆 Actifs 60j", actifs(60))
-c4.metric("📅 Actifs 90j", actifs(90))
+def clients_actifs(jours):
+    return df[df["TxnDate"] >= date_max - pd.Timedelta(days=jours)]["Sender Name"].nunique()
+
+k1, k2, k3, k4 = st.columns(4)
+
+k1.markdown(f"""
+<div class="kpi-card">
+    <div class="kpi-title">👥 CLIENTS</div>
+    <div class="kpi-value">{df["Sender Name"].nunique()}</div>
+</div>
+""", unsafe_allow_html=True)
+
+k2.markdown(f"""
+<div class="kpi-card">
+    <div class="kpi-title">🔥 ACTIFS 30 JOURS</div>
+    <div class="kpi-value">{clients_actifs(30)}</div>
+</div>
+""", unsafe_allow_html=True)
+
+k3.markdown(f"""
+<div class="kpi-card">
+    <div class="kpi-title">📆 ACTIFS 60 JOURS</div>
+    <div class="kpi-value">{clients_actifs(60)}</div>
+</div>
+""", unsafe_allow_html=True)
+
+k4.markdown(f"""
+<div class="kpi-card">
+    <div class="kpi-title">📅 ACTIFS 90 JOURS</div>
+    <div class="kpi-value">{clients_actifs(90)}</div>
+</div>
+""", unsafe_allow_html=True)
 
 st.divider()
 
 # ===============================
-# SEGMENTATION CLIENT
+# FONCTION TABLE CLIENTS
 # ===============================
-tx = (
-    df_filtree
-    .groupby(['Sender Name', 'Agence'])
-    .size()
-    .reset_index(name='Nombre_Envois')
-)
+def table_clients(df, date_min=None):
+    if date_min is not None:
+        df = df[df["TxnDate"] >= date_min]
 
-def segment(n):
-    if n == 1:
-        return "1 transaction"
-    elif n <= 3:
-        return "Rare"
-    elif n <= 11:
-        return "Occasionnel"
-    else:
-        return "Régulier"
-
-tx['Segment'] = tx['Nombre_Envois'].apply(segment)
-
-seg_fig = px.bar(
-    tx.groupby('Segment').size().reset_index(name='Clients'),
-    x='Segment',
-    y='Clients',
-    text='Clients',
-    color='Segment',
-    title="📊 Segmentation des clients – 2025",
-    template="plotly_dark"
-)
-
-seg_fig.update_layout(title_x=0.5)
-st.plotly_chart(seg_fig, use_container_width=True)
+    return (
+        df.groupby(["Sender Name", "Agence"])
+        .agg(Nombre_Envois=("TxnDate", "count"))
+        .reset_index()
+        .sort_values("Nombre_Envois", ascending=False)
+    )
 
 # ===============================
-# TOP CLIENTS
+# LISTES CLIENTS
 # ===============================
-st.subheader("🏆 Top clients par volume")
-st.dataframe(
-    tx.sort_values('Nombre_Envois', ascending=False).head(20),
-    use_container_width=True
-)
+st.subheader("🟢 Clients actifs – 30 jours")
+st.dataframe(table_clients(df, date_max - pd.Timedelta(days=30)), use_container_width=True)
+
+st.subheader("🟡 Clients actifs – 60 jours")
+st.dataframe(table_clients(df, date_max - pd.Timedelta(days=60)), use_container_width=True)
+
+st.subheader("🔵 Clients actifs – 90 jours")
+st.dataframe(table_clients(df, date_max - pd.Timedelta(days=90)), use_container_width=True)
+
+st.subheader("🏆 Top clients – Année 2025")
+st.dataframe(table_clients(df).head(50), use_container_width=True)
 
 # ===============================
-# CLIENTS RÉGULIERS (12 MOIS)
+# CLIENTS ACTIFS CHAQUE MOIS
 # ===============================
-df_filtree['YearMonth'] = df_filtree['TxnDate'].dt.to_period('M')
+df["YearMonth"] = df["TxnDate"].dt.to_period("M")
 
 clients_12_mois = (
-    df_filtree
-    .groupby(['Sender Name', 'Agence'])['YearMonth']
+    df.groupby(["Sender Name", "Agence"])["YearMonth"]
     .nunique()
-    .reset_index(name='Mois_Actifs')
+    .reset_index(name="Mois_Actifs")
 )
 
-clients_12_mois = clients_12_mois[
-    clients_12_mois['Mois_Actifs'] == 12
-]
+clients_12_mois = clients_12_mois[clients_12_mois["Mois_Actifs"] == 12]
+clients_12_mois = clients_12_mois.merge(
+    table_clients(df),
+    on=["Sender Name", "Agence"],
+    how="left"
+)
 
-st.subheader("🔁 Clients réguliers (12 mois actifs)")
+st.subheader("📆 Clients actifs chaque mois (12 mois)")
 st.dataframe(clients_12_mois, use_container_width=True)
+
+# ===============================
+# CLIENTS 1 TRANSACTION
+# ===============================
+st.subheader("⚠️ Clients avec une seule transaction")
+one_tx = table_clients(df)
+one_tx = one_tx[one_tx["Nombre_Envois"] == 1]
+st.dataframe(one_tx, use_container_width=True)
 
 # ===============================
 # FOOTER
 # ===============================
 st.markdown("""
-<hr style='margin-top:40px;'>
+<hr>
 <p style='text-align:center;color:#6B7280;'>
-© 2025 DigiPay – Direction Commerciale
-</p>
-<p style='text-align:center;color:#6B7280;'>
-Verly BOUMBOU KIMBATSA – Responsable Opérations Commerciales
+© 2025 DigiPay – Direction Commerciale<br>
+Analyse Clients – Verly BOUMBOU KIMBATSA
 </p>
 """, unsafe_allow_html=True)
