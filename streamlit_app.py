@@ -47,7 +47,7 @@ df = load_data()
 df = df[df["TxnDate"].dt.year == 2025].copy()
 
 # ===============================
-# ❌ EXCLUSION EMPLOYÉS DIGIPAY
+#  EXCLUSION EMPLOYÉS DIGIPAY
 # ===============================
 clients_internes = [
     "KIHOULOU Mesmin omer",
@@ -211,6 +211,6 @@ st.markdown("""
 <hr>
 <p style='text-align:center;color:#6B7280;'>
 © 2025 DigiPay – Direction Commerciale<br>
-Analyse Clients – Verly BOUMBOU KIMBATSA
+Verly BOUMBOU KIMBATSA - Responsable des Opérations Commerciales
 </p>
 """, unsafe_allow_html=True)
