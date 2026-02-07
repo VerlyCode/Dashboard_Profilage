@@ -295,6 +295,64 @@ fig = px.scatter(
 fig.update_layout(title_x=0.5)
 st.plotly_chart(fig, use_container_width=True)
 
+
+# ===============================
+# 🔻 FUNNEL CLIENT DIGIPAY
+# ===============================
+st.subheader("🔻 Funnel Clients DigiPay")
+
+# Nombre de transactions par client
+tx_par_client = (
+    df.groupby("Sender Name")
+    .size()
+    .reset_index(name="Nombre_Envois")
+)
+
+# Étapes du funnel
+funnel_data = pd.DataFrame({
+    "Étape": [
+        "Clients acquis",
+        "Clients actifs",
+        "Clients fidèles",
+        "Clients très fidèles"
+    ],
+    "Clients": [
+        tx_par_client["Sender Name"].nunique(),                 # ≥ 1
+        tx_par_client[tx_par_client["Nombre_Envois"] >= 2].shape[0],
+        tx_par_client[tx_par_client["Nombre_Envois"] >= 4].shape[0],
+        tx_par_client[tx_par_client["Nombre_Envois"] >= 12].shape[0],
+    ]
+})
+
+# Affichage KPI funnel
+c1, c2, c3, c4 = st.columns(4)
+
+c1.metric("👥 Acquis", funnel_data.loc[0, "Clients"])
+c2.metric("🔥 Actifs", funnel_data.loc[1, "Clients"])
+c3.metric("🔁 Fidèles", funnel_data.loc[2, "Clients"])
+c4.metric("⭐ Très fidèles", funnel_data.loc[3, "Clients"])
+
+# Graphique Funnel (bar chart horizontal – plus lisible pour DG)
+import plotly.express as px
+
+fig_funnel = px.bar(
+    funnel_data,
+    x="Clients",
+    y="Étape",
+    orientation="h",
+    text="Clients",
+    title="🔻 Funnel de fidélisation clients – DigiPay",
+    color="Étape",
+    template="plotly_dark"
+)
+
+fig_funnel.update_layout(
+    yaxis=dict(categoryorder="total ascending"),
+    title_x=0.5
+)
+
+st.plotly_chart(fig_funnel, use_container_width=True)
+
 # ===============================
 # FOOTER
 # ===============================
