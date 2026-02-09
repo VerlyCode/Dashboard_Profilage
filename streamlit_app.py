@@ -354,6 +354,89 @@ fig_funnel.update_layout(
 st.plotly_chart(fig_funnel, use_container_width=True)
 
 # ===============================
+# 📊 ÉVOLUTION MENSUELLE 2025
+# ===============================
+
+# Sécuriser la colonne date
+df["TxnDate"] = pd.to_datetime(df["TxnDate"])
+
+# Créer la colonne mois
+df["YearMonth"] = df["TxnDate"].dt.to_period("M")
+
+# ===============================
+# CLIENTS ACTIFS PAR MOIS
+# ===============================
+clients_actifs = (
+    df.groupby("YearMonth")["Sender Name"]
+    .nunique()
+    .reset_index(name="Clients_Actifs")
+)
+
+# ===============================
+# NOUVEAUX CLIENTS PAR MOIS
+# ===============================
+first_tx = (
+    df.groupby("Sender Name")["YearMonth"]
+    .min()
+    .reset_index()
+)
+
+nouveaux_clients = (
+    first_tx.groupby("YearMonth")["Sender Name"]
+    .nunique()
+    .reset_index(name="Nouveaux_Clients")
+)
+
+# ===============================
+# CLIENTS PERDUS PAR MOIS
+# ===============================
+months = sorted(df["YearMonth"].unique())
+clients_perdus = []
+
+for i in range(1, len(months)):
+    prev_clients = set(df[df["YearMonth"] == months[i - 1]]["Sender Name"])
+    curr_clients = set(df[df["YearMonth"] == months[i]]["Sender Name"])
+    clients_perdus.append([months[i], len(prev_clients - curr_clients)])
+
+clients_perdus = pd.DataFrame(
+    clients_perdus,
+    columns=["YearMonth", "Clients_Perdus"]
+)
+
+# ===============================
+# FUSION DES DONNÉES 2025
+# ===============================
+evolution = (
+    clients_actifs
+    .merge(nouveaux_clients, on="YearMonth", how="left")
+    .merge(clients_perdus, on="YearMonth", how="left")
+    .fillna(0)
+)
+
+evolution["YearMonth"] = evolution["YearMonth"].astype(str)
+evolution["Clients_Perdus"] = evolution["Clients_Perdus"].astype(int)
+
+# ===============================
+# 📈 GRAPHIQUE ÉVOLUTION 2025
+# ===============================
+fig = px.line(
+    evolution,
+    x="YearMonth",
+    y=["Clients_Actifs", "Nouveaux_Clients", "Clients_Perdus"],
+    markers=True,
+    title="📈 Évolution mensuelle des clients – Année 2025",
+    template="plotly_dark"
+)
+
+fig.update_layout(
+    title_x=0.5,
+    xaxis_title="Mois",
+    yaxis_title="Nombre de clients"
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
+# ===============================
 # FOOTER
 # ===============================
 st.markdown("""
